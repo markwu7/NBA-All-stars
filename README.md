@@ -10,3 +10,7 @@ Introduces students to reproducible data management, modeling, and analysis thro
 
 * Type of hypothesis test:
   1. Binomial test 
+
+### Link:
+
+[Project](https://github.com/markwu7/STAT240-Project/tree/main/Project)
