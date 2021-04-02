@@ -1,0 +1,386 @@
+---
+title: "NBA All-star and championship"
+output: html_document
+---
+
+\newcommand{\given}{\,\mid\,}
+\newcommand{\E}{\mathsf{E}}
+\newcommand{\Var}{\mathsf{Var}}
+\renewcommand{\prob}{\mathsf{P}}
+![NBA](final.png){#id .class width=200 height=200px} ![NBA](all-star.png){#id .class width=200 height=200px}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE)
+library(tidyverse)
+library(lubridate)
+library(xml2)
+source("viridis.R")
+source("ggprob.R")
+source("beta-binomial.R")
+
+
+champ = read.csv("Final.csv")
+all_star = read.csv("AllStars_2000-2016.csv") %>% 
+  mutate(Year = Year+1)
+```
+
+<p style="font-family: times, serif; font-size:24pt; font-style:italic;color: blue"> Introduction</p>
+
+Our goal is to understand the importance of having allstars and MVPs in respect to winning NBA championships. We also want to understand the background of these players. Specifically by looking at draft position, player origin, conference, and even height. We want to see how some of these specific factors relate (if at all) to having success in the NBA, in terms of individual and team accomplishments.  
+
+The NBA is a sport where the best player(s) can have the greatest impact on a game due to the nature of the sport, as there are only five players on the court per team at a single time and players play both offense and defense. There has been a strong belief in the world of basketball that having a few good players (meaning at least 2-3 all stars) and not much else, is enough to win an NBA championship. This idea almost dismisses the idea of having a team that is good from top to bottom, but not necessarily having that MVP type player. We want to see which ideology is the most accurate.
+Firstly,in this project we will primarily be using scatter plots or the bar graphs to show the relationship between the number of allstars and team success. Secondly,we used a binomial model with  significance level to see if teams with most All-Stars would have more than 50% winning percentage. Finally, we found that having allstars and MVP caliber players yields more advantageous in the quest to win an NBA championship. 
+
+
+<p style="font-family: times, serif; font-size:24pt; font-style:italic;color: blue"> Background</p>
+
+<b style="font-family: times, serif; font-size:16pt; font-style:bold">
+The definition of each variable are organized into columns described as below. 
+
+There are 40 variables within these 3 datasets.
+</b>
+
+<ins style="font-family: times, serif; font-size:12pt; font-style:underline;color: green"> All-Star Dataset</ins>
+  - <b>Year</b>: Season Year
+  - <b>Player</b>: The All-star player in the corresponding year
+  - <b>Pos</b>: The position of the player
+  - <b>HT</b>: The height of the player
+  - <b>WT</b>: The weight of the player
+  - <b>Team</b>: The team of the player in the regular season
+  - <b>Selection.Type</b>: The team of the player in the all season. and the way the player selected to All-star
+  - <b>NBA.Draft.Status</b>: The draft pick of the player
+  - <b>Nationality</b>: The nationality of the player
+
+<ins style="font-family: times, serif; font-size:12pt; font-style:underline;color: green"> Championship Dataset</ins>
+  - <b>Champion</b>: The championship team in this year
+  - <b>Eastern.Champion</b>: The Eastern conference championship team in this year
+  - <b>MVP.Height..ft.</b>: The Height of regular season MVP.(Unit: ft)
+  - <b>MVP.Height..m.</b>: The Height of regular season MVP.(Unit: Meters)
+  - <b>MVP.Name</b>: The name of regular season MVP        
+  - <b>MVP.Nationality</b>: The nationality of regular season MVP
+  - <b>MVP.Position</b>: The position of regular season MVP
+  - <b>MVP.status</b>: Show the if the regular season MVP reach final or being an championship or Vice.Champion
+  - <b>MVP.Team</b>: The regular season MVP
+  - <b>NBA.Vice.Champion</b>: The runner-up in the final series 
+  - <b>Result</b>: The final result in the final series
+  - <b>Sweep</b>: Show if the result of final is 4-0,which is 4 straight wins
+  - <b>Western.Champion</b>: The Western conference championship team in this year
+  - <b>Year</b>: Season year
+
+<ins style="font-family: times, serif; font-size:12pt; font-style:underline;color: green"> Most All-Star appearance team Dataset</ins>
+  - <b>Season</b>: Season year
+  - <b>Team</b>: Team name
+  - <b>Lg</b>: League
+  - <b>W</b>: Wins in each regular season
+  - <b>L</b>: Losses in each regular season
+  - <b>W.L.</b>: Win-Loss Percentage 
+  - <b>Finish</b>: Regular season finish (within division, if applicable)
+  - <b>SRS</b>:Simple Rating System; a team rating that takes into account average point differential and strength of schedule. The rating is denominated in points above/below average, where zero is average.
+  - <b>Pace</b>:  Pace Factor, an estimate of possessions per 48 minutes
+  - <b>Rel.Pace</b>: Relative Pace, Team's possessions per 48 minutes relative to the league
+  - <b>ORtg</b>: Offensive Rating, an estimate of points produced (players) or scored (teams) per 100 possessions
+  - <b>Rel.ORtg</b>: Relative Offensive Rating,Team's offensive rating relative to the league
+  - <b>DRtg</b>: Defensive Rating, an estimate of points allowed per 100 possessions.
+  - <b>Rel.DRtg</b>: Relative Defensive Rating,Team's defensive rating relative to the league
+  - <b>Playoffs</b>: The result in playoff.
+  - <b>Coaches</b>: The coach in the corresponding year
+  - <b>Top.WS</b>: Highest Win Share generator during the regular season
+
+<b style="font-family: times, serif; font-size:16pt; font-style:bold">Data Citation</b>
+
+We got our datasets from Kaggle,data.world,basketball-reference, which is an open source website used by many people for the purpose of data analysis. The URL link to our dataset shown below:
+  
+  1. https://www.kaggle.com/fmejia21/nba-all-star-game-20002016?select=NBA+All+Stars+2000-2016+-+Sheet1.csv
+  
+  2. https://data.world/datatouille/nba-finals-and-mvps#
+  
+  3. https://www.basketball-reference.com/teams/MIA/
+
+<b style="font-family: times, serif; font-size:16pt; font-style:bold"> Unusual/Nusiance factors</b>
+
+  - Regular season record before the All-star selection might affect the fans' choice.
+  
+  - All-star game might exist the risk of player getting pain
+  
+  - some missing value in the csv file
+
+<b style="font-family: times, serif; font-size:16pt; font-style:bold">Some focus</b>
+
+Since three of dataset are from the different open source website, we would focus the year from Season 2000-2001 to Season 2016-2017, we would shorten the dataset if including the unneeded data.
+
+
+<p style="font-family: times, serif; font-size:24pt; font-style:italic;color: blue"> Analysis</p>  
+
+> Firstly, we want to see which facotrs would affect the player being an All-Star , so we would like to see if there's a relationship between being a first round pick(within 30 picks) and being an allstar during the Season 2000-2001 to Season 2016-2017
+
+```{r, echo=FALSE}
+q1 <- all_star %>%
+  group_by(Year) %>%
+  mutate(fr_status = str_detect(NBA.Draft.Status, "Rnd 1")) %>%
+  mutate(sr_status = str_detect(NBA.Draft.Status, "Rnd 2")) %>%
+  mutate(first = sum(fr_status)) %>%
+  mutate(second = sum(sr_status)) %>%
+  mutate(total_stars = first + second) %>%
+  summarize(pct_fs_stars = first/total_stars, pct_ss_stars = second/total_stars)%>%
+  distinct()
+
+ggplot(q1, aes( x= Year, y = pct_fs_stars*100)) + 
+  geom_point() +  
+  geom_smooth() +
+  labs(x = "Year", y = "First Round Allstars Percentage") +
+  ggtitle("Draft position in relation to Allstar Status")
+```
+
+We found that it's obvious that the 1st round pick are more likely to being All-Star from the graph. Although that trend is starting to change overtime as more players are either second round picks or even undrafted. This shows that more players are improving once they get into the NBA and that draft position is starting to matter a little less, but there is still a higher likelihood that being a first round pick leads to becoming an all star.
+
+> Next, to see if another factor would affect to be an All-Star so we would like to see if there's a relationship between height and being an allstar during the Season 2000-2001 to Season 2016-2017 ?
+
+```{r, echo=FALSE}
+p2 <- all_star %>% 
+  mutate(
+    HT_in = case_when(
+      str_detect(HT, "^5-") ~ 60 + as.double(str_replace(HT, "^[:digit:]{1}-([:digit:]{1,2}$)", "\\1")),
+      str_detect(HT, "^6-") ~ 72 + as.double(str_replace(HT, "^[:digit:]{1}-([:digit:]{1,2}$)", "\\1")),
+      str_detect(HT, "^7-") ~ 84 + as.double(str_replace(HT, "^[:digit:]{1}-([:digit:]{1,2}$)", "\\1"))
+      ),
+    HT_grp = case_when(
+      str_detect(HT, "^5-") ~ "5ft",
+      str_detect(HT, "^6-") ~ "6ft",
+      str_detect(HT, "^7-") ~ "7ft"
+      )
+    ) %>% 
+  group_by(Year, HT_in) %>% 
+  summarise(
+    Player, HT_grp,
+    n = n()
+  ) %>% 
+  ungroup()
+
+
+ggplot(p2, aes(x=HT_in, y=n, color=HT_grp)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x="Height in inches", y="Number of Allstars at height", title="Height vs. Number of Allstars", subtitle="Over time (from 2001-2017)")
+
+```
+
+We notice that being taller is advantageous to being an All-Star, with a tall 6ft ranged player being the  most likely to be selected as an All-Star But height is only beneficial to a certain extent, as we see the trend for 7ft is generally downwards sloping. A reasoning for this could be that there is a loss of agility at extreme heights which makes the player less likely to perform as well and thus less likely to be an all-star.
+
+> Still, to see if another factor would affect to be an All-Star so we would like to see if there's a relationship between nationality (US/Not US) and being an All-Star during the Season 2000-2001 to Season 2016-2017
+
+```{r, echo=FALSE}
+q5=all_star%>%
+  mutate(Nationality=case_when(
+    Nationality=="United States"~"United States",
+    TRUE~"Foreign"
+  ))%>%
+  group_by(Nationality)%>%
+  summarise(count=n())
+
+ggplot(q5, aes(Nationality, count))+ 
+  geom_bar(stat = "identity", position = 'dodge')+
+  ylab("All-Star appearence")+
+  ggtitle("Bar plot to compare the appearence between US and NOT US")
+
+q5b =all_star%>%
+  mutate(Nationality=case_when(
+    Nationality=="United States"~"United States",
+    TRUE~"Foreign"
+  ))%>%
+  group_by(Year,Nationality)%>%
+  summarise(count=n())
+
+ggplot(q5b, aes( x= Year, y = count,color=Nationality)) + 
+  geom_point() +  
+  geom_smooth() +
+  labs(x = "Year", y = "All-Star count") +
+  ggtitle("Nationality in relation to Allstar Status")
+
+```
+
+We found that it's obvious that American are more likely to being All-Star from the above graph. And there's no chance that the foreign player have more appearance than the American player  in All-Star game during Season 2000-2001 to Season 2016-2017. This implies there is still a higher likelihood that being American player leads to becoming an all star and foreign player still have large gap with them.
+
+> Moreover, we're wondering if the BMI would be a factor or the reason that affect the fans or the coach to select an All-Star
+
+```{r, echo=FALSE}
+q4 = all_star%>%
+  mutate(
+    HT_m=as.numeric(str_replace(HT,"-","."))*0.3048,
+    WT_kg=WT*0.45359237,
+    bmi=WT_kg/(HT_m*HT_m),
+    bmi_level=case_when(
+      bmi  <=18.5~"Underweight",
+      18.5< bmi & bmi<=24.9 ~"Normal",
+      24.9< bmi & bmi<=29.9 ~"Overweight",
+      30<=bmi~"Obesity"
+    )
+  )
+
+ggplot(q4, aes( x= Year, y = bmi)) + 
+  geom_point(aes(color=bmi_level)) +  
+  geom_smooth() +
+  labs(x = "Year", y = "BMI") +
+  ggtitle("BMI of All-Star during years")
+
+q4b=q4%>%
+  group_by(Year,bmi_level)%>%
+  summarise(n=n())
+
+ggplot(q4b, aes( x= Year, y = n,fill=bmi_level)) + 
+  geom_bar(position="dodge2", stat="identity") +  
+  labs(x = "Year", y = "Count of each BMI category") +
+  ggtitle("Barchart for BMI category count of All-Star during years")
+
+```
+
+We observed that there's no underweight player was selected to be an All-Star, and from the smooth line, there's the increasing trend for the BMI of All-Star year by year.However, through the side by side bar chart , we observed that "normal" level player would be "easily be selected" and the "obesity" player always be the "least amount" in the All-Star game. In sum, the one point we noticed it's there's no All-Star was underweight, and it make sense to us because we knew NBA league is the best basketball league, if player not strong enough would be easily get hurt.
+
+<b>Hence, from the above plots, we can conclude that the player whose Nationality is "American", was drafted by "1st round pick" and with a "tall 6ft ranged" and with the "Normal" BMI level would be easily to be chosen by being an All-Star.</b>
+
+> Next, after knowing what kind of player is more likly to being an All-Star, we wanted to know if the team having 3 or more allstars would like to win a championship or not.
+
+```{r, echo=FALSE}
+p4_temp <- all_star %>% 
+  group_by(Year, Team) %>% 
+  summarise(num_allstars = n()) %>% 
+  filter(num_allstars > 2) %>% 
+  mutate(Year = as.integer(Year)) %>% 
+  rename(allstar_team = Team)
+
+p4 <- read.csv("Final.csv") %>% 
+  select(Year, champ = Champion, vice_champ = NBA.Vice.Champion) %>% 
+  left_join(p4_temp, by = c("Year" = "Year")) %>% 
+  filter(!is.na(num_allstars)) %>% 
+  group_by(allstar_team) %>% 
+  summarise(Year, num_allstars,
+    champs = case_when(
+      allstar_team == champ ~ "Champion!",
+      allstar_team == vice_champ ~ "Vice-Champion",
+      TRUE ~ "Not Champion"
+    )) %>% 
+  ungroup()
+  
+p4 %>% 
+  arrange(champs)
+
+graph <- p4 %>% 
+  group_by(champs) %>% 
+  summarize(
+    n=n()
+  ) %>% 
+  distinct()
+
+ggplot(graph, aes(x = champs, y = n)) +
+  geom_col() +
+  labs(x = "Champion status", y = "# of teams with status", title = "Champion status vs # of teams with champion status")
+```
+
+We see that are only 17 instances where a team has 3 or more All-Star And out of those 17 instances, the teams only win the championship 4 times, suggesting that there is no correlation between having more All-Star and having a higher chance of winning the championship.
+
+> Also, we knew that MVP represents the best player in the single game or the series, we would like to see how possible that the player winning the Season MVP, then proceeding to win the finals MVP.
+
+```{r, echo=FALSE}
+q3 <- champ %>%
+  mutate(mvp_to_champ = case_when(
+    Champion==MVP.Team~"Leads championship win",
+    Champion!=MVP.Team~"Fails to win championship")) %>%
+  group_by(mvp_to_champ)%>%
+  summarise(count=n())
+q3
+
+ggplot(q3,aes(mvp_to_champ,count)) +
+  geom_bar(stat = "identity", position = 'dodge')+
+  xlab("Result")+
+  ylab("Number of Occurances")+
+  ggtitle("Relationship between having the MVP and winning a championship")
+```
+
+
+As we can see in the graph, having the MVP doesn't necessarily lead to winning the championship. Teams that didn't have the MVP of the league actually won significantly more often than teams that did have the MVP. This shows that having a more complete and unified team is much more valuable than simply having the best player.
+
+
+>Next, we would like to know during this period (Season 2000-2001 to Regular Season 2016-2017), which team with the most appearance in the All-Star game and we also wondering if they're likely to have 50% to win a game in the regular season 
+
+- $X$ is the number of wins in 1378 games(Regular Season 2000-2001 to Regular Season 2016-2017)
+
+- Assume:
+    - each trial could be win or lose
+    - trials are independent 
+    - same probability of win choice for each trial 
+    
+- Under these assumptions, $X$ has a binomial distribution.
+
+- Parameters are:
+    - $n$, the number of trials. Here $n=1378$.
+    - $p$, an unknown long-run probability that this team wins.
+    - we would use the team with the most all star in these years
+    
+The model is:
+
+$$
+X \given p \sim \text{Binomial}(n,p)
+$$
+
+### Hypothesis
+
+- In the most all-star appearance team example, it makes sense to pose these null hypothesis and alternative hypotheses.
+
+- Right-tailed test
+
+    - $H_0: p_{allstar} <= 0.5$
+    
+    - $H_a: p_{allstar} > 0.5$
+
+```{r, echo=FALSE}
+
+champ = champ%>%
+  filter(Year<=2017 &Year >=2000)
+  
+
+star_num = all_star%>%
+  group_by(Year,Team)%>%
+  summarise(n=n())%>%
+  group_by(Team)%>%
+  summarise(appearence=sum(n))%>%
+  slice_max(appearence)
+star_num
+
+miami = read.csv("miami_stat.csv")%>%
+  select(Year=Season,everything())%>%
+  filter(Year<=2017 &Year >=2000)
+
+win=sum(miami$W)
+lose=sum(miami$L)
+gameplay=win+lose
+
+
+## Find the values of x where the probability of the data
+##   is the same or smaller than the observed value of 359
+n = as.numeric(gameplay)
+x = as.numeric(win)
+p0 = 0.5
+tol = 1e-8
+
+binom.test(815, 1460, 0.5, alternative="greater")
+
+gbinom(n,p0,scale = TRUE) +
+  geom_vline(xintercept = x, color = "red", linetype = "dashed") 
+#+geom_vline(xintercept = 645, color = "red", linetype = "dashed")
+
+
+```
+
+First, we knew the team with the most appearance in All-star game is Miami Heat from the table.And from the binomial test, we can conclude that there is strong evidence that the most all-star appearance make win more than half the time in the experimental settings (p=4.763e-06, Right-tailed binomial test).That is, We can conclude that, we have 95% of confidence to reject our $H_0$,which means the team with most appearance in All-Star game  has 95% chance that will have chance to win more than 50% in the regular season. 
+  
+
+<p style="font-family: times, serif; font-size:24pt; font-style:italic;color: blue"> Discussion</p>
+
+Firstly, the relationship between first round picks relative to them becoming allstars is in line with the belief that having a higher draft pick yields greater results. Although that is not saying that it is not impossible to be an allstar if you are drafted in the second round or are not drafted at all, it just harder to do so. One potential short-coming of this is that we didn't separate the NBA draft lottery (the first 14 picks) from the rest of the first round. The NBA draft lottery historically has much better players in it because the higher up a team drafts, the more likely they are the find good players. This lack of clarity in the first round can provide misleading data about drafting in the first round as a whole because it will seem that all first round picks are created equal, when in reality, the top 14 picks are much more valuable than picks 15-30. 
+
+When addressing the relationship between height and the likelihood to be an allstar, it more advantageous to be a taller 6-foot player. This means to be someone who is 6-6 and above, but below 7-feet tall. This is because in the NBA being able to have multiple skill sets on the basketball court is best. Not saying that shorter or much taller players cannot, it is simply stating that these taller 6-foot players are about to optimize this combination of skill set the best due to their combination of athleticism, size, and skill. For example, some of the best players to ever play are above 6-6, such as Michael Jordan, Kobe Bryant, and LeBron James. One potential short coming of this data is players lying about their height. This is common practice in the sport of basketball because basketball is a tall person's game. This is very hard to track and determine, so we have to go with what we are presented as being truthful.
+
+When discussing the correlation between being US born or born internationally, it is important to focus on how the NBA has slowly become more globalized as the years have gone on. The NBA during the early 2000s and early 2010s didn't have many great international players. There were a few, but not to the extent that there are today. There is even a younger player (typically a player that has only been in the NBA for 3 seasons of less) event that takes place before the all-star game that showcases the US born vs. the internationally born players. This trend is starting to change and the number of allstars that are US born and born internationally will reflect that and the gap between the two will lessen. One short coming of this data is the fact that is doesn't encompass 2017-2020 as this is when players like Luka Dončić and Giannis Antetokounmpo (both internationally born) started to become great players in the league.
+
+This question is extremely relevant in today's modern NBA due to the introduction of the "super team", which is when an NBA team will have a collection of 3-4 allstars and surround those few players with very average NBA players in hopes that those few players can lead the team to an NBA championship. From our findings, we saw that having a more complete team was more advantageous. This is most likely because having a lot of allstars is very expensive and team only has so much money to spend on players due to there being a salary cap. But it is important to note that teams with 3 or more allstars did make it to the championship round 10/17 times, which is about 58% of the time. 
+
+When looking at the relationship between having the MVP and then proceeding to win the NBA championship, it is important to note that simply having the best player is not enough. This player may be able to win games with his own skill, but over the long haul of an NBA season and into the playoffs, it becomes increasingly more difficult for a player carry a team to win a championship. There are multiple factors that are hard to address with a data visualization though.For example, some players win the MVP award not because they are the best player in the NBA, but because they are the most valuable to their team. This award is very subjective and the definition of what it means to be an MVP varies from person to person. Also team makeup is not taken into account. The "failures" of an MVP to not win a championship does not solely fall on his shoulders, just as the ability of an MVP to lead a team to a championship is not solely his own doing. Although basketball may be sport that allows one player to truly influence the outcome of games, it is still a team sport and having supplemental parts is important to some degree.
+
